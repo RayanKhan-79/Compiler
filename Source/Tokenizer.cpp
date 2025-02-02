@@ -96,7 +96,6 @@ std::vector<Token> Tokenizer::Tokenize()
     std::vector<Token> tokens;
     std::string buffer;
 
-    std::cout << sourceCode << '\n';
     while (peek().has_value())
     {
         // std::cout << i++ << '\n';
@@ -285,6 +284,8 @@ std::vector<Token> Tokenizer::Tokenize()
                 tokens.push_back(Token(LOGICAL_XOR));
             else if (buffer == "for")
                 tokens.push_back(Token(FOR));
+            else if (buffer == "Null")
+                tokens.push_back(Token(Null));
             else
                 tokens.push_back(Token(IDENT, buffer));
 

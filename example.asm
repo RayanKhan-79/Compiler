@@ -20,49 +20,29 @@ main PROC
 
 
 ;;STRING DECLARATION
-    MOV AL, 0
-    MOV AH, 0
-    PUSH AX
-    MOV AL, 35
-    MOV AH, 35
-    PUSH AX
-    MOV AL, 35
-    MOV AH, 35
-    PUSH AX
-    MOV AL, 35
-    MOV AH, 35
-    PUSH AX
-    MOV AL, 35
-    MOV AH, 35
-    PUSH AX
-    MOV AL, 35
-    MOV AH, 35
-    PUSH AX
-    MOV EDX, ESP
+    MOV EDX, 0
     PUSH EDX
 
 
-    MOV EAX, console_pointer
-    CMP EAX, 0
-    JNE DONT_Call_function
-        MOV ECX, LENGTHOF ConsoleInput
-        MOV EDX, OFFSET ConsoleInput
-        INVOKE GetStdHandle, -10
-        INVOKE ReadConsoleA, Eax, Edx, Ecx, OFFSET charsRead, 0
-    DONT_CALL_function:
-    MOV EDX, [EBP - 16]
-    LEA ESI, ConsoleInput
-    ADD ESI, console_pointer
-    MOV EBX, ' '
-    CALL StrCpy
-    ADD console_pointer, ECX
-    MOV EAX, console_pointer
-    CMP EAX, charsRead
-    JL DONT_RESET
-        MOV console_pointer, 0
-    DONT_RESET:
 
-    MOV EDX, [EBP - 16]
+;;STRING ASSIGNMENT
+    MOV AL, 0
+    MOV AH, 0
+    PUSH AX
+    MOV AL, 111
+    MOV AH, 0
+    PUSH AX
+    MOV AL, 108
+    MOV AH, 108
+    PUSH AX
+    MOV AL, 72
+    MOV AH, 101
+    PUSH AX
+    MOV EDX, ESP
+    PUSH EDX
+    MOV DWORD PTR [EBP - 4], EDX
+
+    MOV EDX, [EBP - 4]
 
     CALL StringLength
     MOV ECX, EAX
@@ -71,23 +51,17 @@ main PROC
 
 
 
-;;EXIT
-    MOV EAX, 0
-    PUSH EAX
-    POP EAX
-    MOV ESP, returnAddress
-    RET
-
-
     MOV EAX, 0
     MOV ESP, returnAddress
     RET
 main ENDP
 
-StringLength PROC USES EDX
+StringLength PROC USES EDX EBX
     MOV EAX, 0
         StartL:
         CMP Byte Ptr [EDX + EAX], 0
+        JE EndL
+        CMP Byte Ptr [EDX + EAX], BL
         JE EndL
             INC EAX
         JMP StartL
@@ -102,6 +76,11 @@ StringLength ENDP
         JE _return
         CMP Byte Ptr [ESI], 0
         JE _return
+        CMP Byte Ptr [ESI], 0dh
+        JE _return
+        CMP Byte Ptr [ESI], 0ah
+        JE _return
+
         MOV AL, Byte Ptr[ESI]
         MOV Byte Ptr[EDX], AL
         INC ESI

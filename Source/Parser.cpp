@@ -354,7 +354,10 @@ Node::StringExprNode Parser::ParseStringExpr()
     if (peek().value().type == IDENT)
         return Node::StringExprNode(Node::StringIdentNode(consume()));
 
-    return Node::StringExprNode(Node::NullNode());
+    if (peek().value().type == Null)
+        return Node::StringExprNode(Node::NullNode(consume()));
+
+    return {};
 }
 
 std::optional<Node::let_StringNode> Parser::ParseLetString()

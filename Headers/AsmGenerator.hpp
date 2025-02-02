@@ -12,8 +12,9 @@ struct Variable
 {
     size_t stackOffset;
     std::string name;
+    bool isNull;
 
-    Variable(size_t stackOffset, const std::string& name);
+    Variable(size_t stackOffset, const std::string& name, bool isNull);
 };
 
 class AsmGenerator
@@ -42,6 +43,7 @@ public:
     void generatePrint(const Node::PrintNode& node);
     void generateRead(const Node::ReadNode& node);
     const Variable* find(const std::string& varName) const;
+    Variable* find(const std::string& varName);
     void generateExpression(const std::vector<std::variant<Node::OperandNode, Node::OperatorNode>>& expression);
     void generateLetAsm(const Node::LetNode& letNode);
     void generateIfAsm(const Node::IfNode* ifnode);

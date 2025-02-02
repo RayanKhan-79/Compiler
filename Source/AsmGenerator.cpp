@@ -1,8 +1,9 @@
 #include"../Headers/AsmGenerator.hpp"
 
-    Variable::Variable(size_t stackOffset, const std::string& name) : 
+    Variable::Variable(size_t stackOffset, const std::string& name, bool isNull) : 
         stackOffset(stackOffset),
-        name(name)
+        name(name),
+        isNull(isNull)
     {
 
     }
@@ -186,19 +187,23 @@
             }
             void operator()(const Node::StringIdentNode& node) 
             {
-                if (const Variable* var = Gen->find(node.label.value)) 
-                {
-                    Gen->outStream << Gen->indent << "    MOV EDX, [EBP - " << 4 * var->stackOffset << "]\n";
-                    Gen->winApi.CallWriteConsole(Gen->indent);
-                    return;
-                }
+                const Variable* var = Gen->find(node.label.value);
+                if (var == nullptr) 
+                    Log("Undeclared Identifier " + node.label.value);
 
-                std::cerr << "Undeclared Identifier " << node.label.value << "\n";
-                exit(EXIT_FAILURE);
+                if (var->isNull)
+                    Log("Null Pointer Exception");
+
+                Gen->outStream << Gen->indent << "    MOV EDX, [EBP - " << 4 * var->stackOffset << "]\n";
+                Gen->winApi.CallWriteConsole(Gen->indent);
             }
             void operator()(const Node::StringExprNode& node)
             {
                 std::visit(Visitor(Gen), node.expression);
+            }
+            void operator()(const Node::NullNode& node)
+            {
+                Log("Null Pointer Exception");
             }
             void operator()(const Node::IntExprNode& node)
             {
@@ -212,6 +217,15 @@
     const Variable* AsmGenerator::find(const std::string& varName) const
     {
         for (const Variable& var : varMap)
+            if (var.name == varName)
+                return &var;
+
+        return nullptr;
+    }
+
+    Variable* AsmGenerator::find(const std::string& varName)
+    {
+        for (Variable& var : varMap)
             if (var.name == varName)
                 return &var;
 
@@ -287,7 +301,7 @@
             std::cerr << "Identifier " << letNode.identNode.label.value << " Redecleared\n";
             return;
         }
-        varMap.push_back(Variable(stack_pointer, letNode.identNode.label.value));
+        varMap.push_back(Variable(stack_pointer, letNode.identNode.label.value, false));
     }
 
     void AsmGenerator::generateIfAsm(const Node::IfNode* ifnode)
@@ -391,33 +405,43 @@
         struct Visitor
         {
             AsmGenerator* Gen;
-            Visitor(AsmGenerator* Gen) : Gen(Gen) {};
+            Variable* leftVar;
+            Visitor(AsmGenerator* Gen, Variable* leftVar) : Gen(Gen), leftVar(leftVar) {};
 
             void operator()(const Node::StringIdentNode& strIdent)
             {
                 if (const Variable* var = Gen->find(strIdent.label.value))
                 {
+                    if (leftVar->isNull == false)
+                        Log("Reassignment Of A Non Null Pointer Would Cause A Memory Leak");
+                    
+                    leftVar->isNull = false;
                     Gen->outStream << "    MOV EDX, DWORD PTR [EBP - " << 4 * var->stackOffset << "]\n";
-                    return;
                 }
             }
             void operator()(const Node::StringLitNode& strLit)
             {
+                if (leftVar->isNull == false)
+                    Log("Reassignment Of A Non Null Pointer Would Cause A Memory Leak");
+
+                leftVar->isNull = false;
                 Gen->generateString(strLit);
                 Gen->outStream << "    MOV EDX, ESP\n";
                 Gen->push("EDX");
             }
+            void operator()(const Node::NullNode& node)
+            {
+                leftVar->isNull = true;
+                Gen->outStream << "    MOV EDX, 0\n";
+            }
         };
 
-        const Variable* var = this->find(node.left.label.value);
+        Variable* var = this->find(node.left.label.value);
         if (var == nullptr)
-        {
-            std::cerr << "Undeclared Identifier " << node.left.label.value << '\n';
-            exit(EXIT_FAILURE);
-        }
+            Log("Undeclared Identifier " + node.left.label.value);
 
         Comment("STRING ASSIGNMENT", indent);
-        std::visit(Visitor(this), node.right.expression);
+        std::visit(Visitor(this, var), node.right.expression);
         outStream << "    MOV DWORD PTR [EBP - " << 4 * var->stackOffset << "], EDX\n";
     }
 
@@ -426,20 +450,27 @@
         struct Visitor
         {
             AsmGenerator* gen;
-            Visitor(AsmGenerator* gen) : gen(gen) {};
+            const std::string& identName;
+            Visitor(AsmGenerator* gen, const std::string& identName) : gen(gen), identName(identName) {};
 
             void operator()(const Node::NullNode& node)
             {
                 gen->outStream << "    MOV EDX, 0\n";
                 gen->push("EDX");
-                gen->outStream << "\n";   
+                gen->outStream << "\n";
+                Variable declaration(gen->stack_pointer, identName, true);
+                gen->varMap.push_back(declaration);
+
             }
             void operator()(const Node::StringLitNode& node)
             {
                 gen->generateString(node);
                 gen->outStream << "    MOV EDX, ESP\n";
                 gen->push("EDX");
-                gen->outStream << '\n';
+                gen->outStream << '\n';                    
+                Variable declaration(gen->stack_pointer, identName, false);
+                gen->varMap.push_back(declaration);
+
             }
             void operator()(const Node::StringIdentNode& node)
             {
@@ -447,16 +478,17 @@
                 {
                     gen->outStream << "    MOV EDX, DWORD PTR [EBP - " << 4 * var->stackOffset << "]\n";
                     gen->push("EDX");
-                    gen->outStream << '\n';                
+                    gen->outStream << '\n';
+                    Variable declaration(gen->stack_pointer, identName, false);
+                    gen->varMap.push_back(declaration);
                     return;
                 }
                 Log("Undeclared Identifier");
             }
         };
-        
+
         Comment("STRING DECLARATION", indent);
-        std::visit(Visitor(this), node.strExpr.expression);
-        varMap.push_back(Variable(stack_pointer, node.identNode.label.value));
+        std::visit(Visitor(this, node.identNode.label.value), node.strExpr.expression);
     }
 
     void AsmGenerator::generateForLoopASM(const Node::ForLoopNode* forloop)
@@ -475,6 +507,9 @@
 
     void AsmGenerator::generateRead(const Node::ReadNode& node)
     {
+
+        Log("Reading Not Implemented");
+
         outStream << "    MOV EAX, console_pointer\n";
         outStream << "    CMP EAX, 0\n";
         outStream << "    JNE DONT_Call_function\n";
@@ -492,12 +527,15 @@
             void operator()(const Node::StringIdentNode& node)
             {
                 if (const Variable* var = Gen->find(node.label.value)) {
-                    Gen->outStream << "    MOV EDX, [EBP - " << 4 * var->stackOffset << "]\n";
-                    Gen->outStream << "    LEA ESI, ConsoleInput\n";;
-                    Gen->outStream << "    ADD ESI, console_pointer\n";;
+
+                    if (var->isNull == false)
+                        Log("Writing To A Non-Null Pointer Will Cause A Memory Leak");
+
+                    Gen->outStream << "    LEA EDX, ConsoleInput\n";
+                    Gen->outStream << "    ADD EDX, console_pointer\n";
                     Gen->outStream << "    MOV EBX, ' '\n";
-                    Gen->outStream << "    CALL StrCpy\n";
-                    Gen->outStream << "    ADD console_pointer, ECX\n";
+                    Gen->outStream << "    CALL StringLength\n";
+                    Gen->outStream << "    SUB ESP, EAX + 1\n";
                 }
             }
             void operator()(const Node::IntIdentNode& node)

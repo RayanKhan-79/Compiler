@@ -40,6 +40,7 @@ void WinApiGenerator::StrCpyPROC() const
 void WinApiGenerator::CallWriteConsole(const std::string& indent) const
 {
     outStream << '\n';
+    outStream << indent << "    MOV EBX, 0\n";
     outStream << indent << "    CALL StringLength\n";
     outStream << indent << "    MOV ECX, EAX\n";
     outStream << indent << "    INVOKE GetStdHandle, -11\n";
@@ -49,10 +50,12 @@ void WinApiGenerator::CallWriteConsole(const std::string& indent) const
 void WinApiGenerator::StringLengthPROC() const
 {
     outStream << '\n';
-    outStream << "StringLength PROC USES EDX\n";
+    outStream << "StringLength PROC USES EDX EBX\n";
     outStream << "    MOV EAX, 0\n";
     outStream << "        StartL:\n";
     outStream << "        CMP Byte Ptr [EDX + EAX], 0\n";
+    outStream << "        JE EndL\n";
+    outStream << "        CMP Byte Ptr [EDX + EAX], BL\n";
     outStream << "        JE EndL\n";
     outStream << "            INC EAX\n";
     outStream << "        JMP StartL\n";

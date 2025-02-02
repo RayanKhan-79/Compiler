@@ -35,7 +35,8 @@ namespace Node
 
     struct NullNode
     {
-
+        Token nullToken;
+        NullNode(const Token& nullToken = Token()) : nullToken(nullToken) {}
     };
 
     struct OperandNode
