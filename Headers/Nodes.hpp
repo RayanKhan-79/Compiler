@@ -33,6 +33,11 @@ namespace Node
         StringLitNode(const Token& stringLit = INVALID) : stringLit(stringLit) {}
     };
 
+    struct NullNode
+    {
+
+    };
+
     struct OperandNode
     {
         std::variant<IntIdentNode, IntLitNode> exprVar;
@@ -55,9 +60,9 @@ namespace Node
 
     struct StringExprNode
     {
-        std::variant<StringLitNode, StringIdentNode> expression;
+        std::variant<StringLitNode, StringIdentNode, NullNode> expression;
 
-        StringExprNode(const std::variant<StringLitNode, StringIdentNode>& expression = std::variant<StringLitNode, StringIdentNode>()) : expression(expression) {}
+        StringExprNode(const std::variant<StringLitNode, StringIdentNode, NullNode>& expression = NullNode()) : expression(expression) {}
     };
 
     struct ExitNode
@@ -77,9 +82,16 @@ namespace Node
 
     struct PrintNode
     {
-        StringExprNode strExpr;
+        std::variant<IntExprNode,StringExprNode> output;
 
-        PrintNode(StringExprNode strExpr = StringExprNode()) : strExpr(strExpr) {};
+        PrintNode(const std::variant<IntExprNode,StringExprNode>& output = std::variant<IntExprNode,StringExprNode>()) : output(output) {}
+    };
+
+    struct ReadNode
+    {
+        std::variant<IntIdentNode, StringIdentNode> ident;
+
+        ReadNode(const std::variant<IntIdentNode, StringIdentNode>& ident = std::variant<IntIdentNode, StringIdentNode>()) : ident(ident) {}
     };
 
     struct LetNode
@@ -91,17 +103,25 @@ namespace Node
         LetNode(const IntIdentNode& identNode = IntIdentNode(), const IntExprNode& exprNode = IntExprNode()) : identNode(identNode), exprNode(exprNode) {}
     };
 
+    struct PlusEqNode {};
+    struct MinusEqNode {};
+    struct MulEqNode {};
+    struct DivEqNode {};
+    struct NormEqNode {};
+
+    typedef std::variant<PlusEqNode, MinusEqNode, MulEqNode, DivEqNode, NormEqNode> AssignNode;
+
     struct IntAssignmentNode
     {
-        OperatorNode operatorNode;
+        AssignNode assignVar;
         IntIdentNode left;
         IntExprNode right;
 
         IntAssignmentNode(
-        const OperatorNode& operatorNode = OperatorNode(),
+        const AssignNode& assignVar = AssignNode(),
         const IntIdentNode& left = IntIdentNode(),
         const IntExprNode& right = IntExprNode()
-        ) : operatorNode(operatorNode), left(left), right(right)
+        ) : assignVar(assignVar), left(left), right(right)
         {
             
         }
@@ -124,22 +144,16 @@ namespace Node
 
     };
 
-    // struct AssignmentNode
-    // {
-    //     std::variant<StringAssignmentNode, IntAssignmentNode> var;
-    //     AssignmentNode(const std::variant<StringAssignmentNode, IntAssignmentNode>& var = std::variant<StringAssignmentNode, IntAssignmentNode>()) : var(var) {};
-    // };
-
     struct ScopeNode;
     struct IfNode;
     struct ForLoopNode;
 
     struct StmtNode
     {
-        std::variant<ExitNode, LetNode, PrintNode, let_StringNode, IntAssignmentNode, StringAssignmentNode, ScopeNode*, IfNode*, ForLoopNode*> stmtVar;
+        std::variant<ExitNode, LetNode, PrintNode, ReadNode, let_StringNode, IntAssignmentNode, StringAssignmentNode, ScopeNode*, IfNode*, ForLoopNode*> stmtVar;
 
         // Parameterized constructor with default argument
-        StmtNode(const std::variant<ExitNode, LetNode, PrintNode, let_StringNode, IntAssignmentNode, StringAssignmentNode, ScopeNode*, IfNode*, ForLoopNode*>& stmtVar = {}) : stmtVar(stmtVar) {}
+        StmtNode(const std::variant<ExitNode, LetNode, PrintNode, ReadNode, let_StringNode, IntAssignmentNode, StringAssignmentNode, ScopeNode*, IfNode*, ForLoopNode*>& stmtVar = {}) : stmtVar(stmtVar) {}
     };
 
     struct ScopeNode
